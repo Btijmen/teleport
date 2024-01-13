@@ -612,9 +612,74 @@ func (o *osWrapper) startNewParker(ctx context.Context, credential *syscall.Cred
 	return nil
 }
 
-// RunForward reads in the command to run from the parent process (over a
+type forwardHandlerParams struct {
+	addr            string
+	controlConn     *uds.Conn
+	fileDescriptors []*os.File
+}
+
+type forwardHandler func(ctx context.Context, params forwardHandlerParams)
+
+func handleLocalPortForward(ctx context.Context, params forwardHandlerParams) {
+	if len(params.fileDescriptors) == 0 {
+		return
+	}
+	conn, err := uds.FromFile(params.fileDescriptors[0])
+	params.fileDescriptors[0].Close()
+	if err != nil {
+		return
+	}
+	go func(addr string, conn net.Conn) {
+		defer conn.Close()
+		remote, err := net.Dial("tcp", addr)
+		if err != nil {
+			return
+		}
+		defer remote.Close()
+		utils.ProxyConn(ctx, conn, remote)
+	}(params.addr, conn)
+}
+
+func handleRemotePortForward(ctx context.Context, params forwardHandlerParams) {
+	listener, err := net.Listen("tcp", params.addr)
+	if err != nil {
+		return
+	}
+
+	go func() {
+		for ctx.Err() == nil {
+			conn, err := listener.Accept()
+			if err != nil {
+				continue
+			}
+			go acceptAndForward(ctx, conn, params)
+		}
+	}()
+}
+
+func acceptAndForward(ctx context.Context, conn net.Conn, params forwardHandlerParams) {
+	local, remote, err := uds.NewSocketpair(uds.SocketTypeDatagram)
+	if err != nil {
+		return
+	}
+	defer remote.Close()
+	defer local.Close()
+
+	remoteFD, err := remote.File()
+	if err != nil {
+		return
+	}
+	defer remoteFD.Close()
+	_, _, err = params.controlConn.WriteWithFDs(nil, []*os.File{remoteFD})
+	if err != nil {
+		return
+	}
+	utils.ProxyConn(ctx, conn, local)
+}
+
+// runForward reads in the command to run from the parent process (over a
 // pipe) then port forwards.
-func RunForward() (errw io.Writer, code int, err error) {
+func runForward(handler forwardHandler) (errw io.Writer, code int, err error) {
 	// errorWriter is used to return any error message back to the client.
 	// Use stderr so that it's not forwarded to the remote client.
 	errorWriter := os.Stderr
@@ -685,7 +750,7 @@ func RunForward() (errw io.Writer, code int, err error) {
 	var buf [1024]byte
 	var fbuf [1]*os.File
 	for {
-		n, fn, err := conn.ReadWithFDs(buf[:], fbuf[:])
+		n, _, err := conn.ReadWithFDs(buf[:], fbuf[:])
 		if err != nil {
 			if utils.IsOKNetworkError(err) {
 				return errorWriter, teleport.RemoteCommandSuccess, nil
@@ -693,26 +758,22 @@ func RunForward() (errw io.Writer, code int, err error) {
 			return errorWriter, teleport.RemoteCommandFailure, trace.Wrap(err)
 		}
 
-		if fn == 0 {
-			continue
-		}
-
-		conn, err := uds.FromFile(fbuf[0])
-		fbuf[0].Close()
-		if err != nil {
-			continue
-		}
-
-		go func(addr string, conn net.Conn) {
-			defer conn.Close()
-			remote, err := net.Dial("tcp", addr)
-			if err != nil {
-				return
-			}
-			defer remote.Close()
-			utils.ProxyConn(ctx, conn, remote)
-		}(string(buf[:n]), conn)
+		handler(ctx, forwardHandlerParams{
+			addr:            string(buf[:n]),
+			controlConn:     conn,
+			fileDescriptors: fbuf[:],
+		})
 	}
+}
+
+func RunLocalForward() (errw io.Writer, code int, err error) {
+	errw, code, err = runForward(handleLocalPortForward)
+	return errw, code, trace.Wrap(err)
+}
+
+func RunRemoteForward() (errw io.Writer, code int, err error) {
+	errw, code, err = runForward(handleRemotePortForward)
+	return errw, code, trace.Wrap(err)
 }
 
 // runCheckHomeDir check's if the active user's $HOME dir exists.
@@ -747,8 +808,10 @@ func RunAndExit(commandType string) {
 	switch commandType {
 	case teleport.ExecSubCommand:
 		w, code, err = RunCommand()
-	case teleport.ForwardSubCommand:
-		w, code, err = RunForward()
+	case teleport.LocalForwardSubCommand:
+		w, code, err = RunLocalForward()
+	case teleport.RemoteForwardSubCommand:
+		w, code, err = RunRemoteForward()
 	case teleport.CheckHomeDirSubCommand:
 		w, code, err = runCheckHomeDir()
 	case teleport.ParkSubCommand:
@@ -768,7 +831,7 @@ func RunAndExit(commandType string) {
 func IsReexec() bool {
 	if len(os.Args) == 2 {
 		switch os.Args[1] {
-		case teleport.ExecSubCommand, teleport.ForwardSubCommand, teleport.CheckHomeDirSubCommand,
+		case teleport.ExecSubCommand, teleport.LocalForwardSubCommand, teleport.CheckHomeDirSubCommand,
 			teleport.ParkSubCommand, teleport.SFTPSubCommand:
 			return true
 		}
@@ -984,9 +1047,14 @@ func ConfigureCommand(ctx *ServerContext, extraFiles ...*os.File) (*exec.Cmd, er
 
 	// The channel type determines the subcommand to execute (execution or
 	// port forwarding).
-	subCommand := teleport.ExecSubCommand
-	if ctx.ChannelType == teleport.ChanDirectTCPIP {
-		subCommand = teleport.ForwardSubCommand
+	var subCommand string
+	switch ctx.ChannelType {
+	case teleport.ChanDirectTCPIP:
+		subCommand = teleport.LocalForwardSubCommand
+	case teleport.TCPIPForwardRequest:
+		subCommand = teleport.RemoteForwardSubCommand
+	default:
+		subCommand = teleport.ExecSubCommand
 	}
 
 	// Build the list of arguments to have Teleport re-exec itself. The "-d" flag

@@ -810,9 +810,11 @@ const (
 	// command execution (exec and shells).
 	ExecSubCommand = "exec"
 
-	// ForwardSubCommand is the sub-command Teleport uses to re-exec itself
-	// for port forwarding.
-	ForwardSubCommand = "forwardv2"
+	// LocalForwardSubCommand is the sub-command Teleport uses to re-exec itself
+	// for local port forwarding.
+	LocalForwardSubCommand = "forwardv2"
+
+	RemoteForwardSubCommand = "remoteforward"
 
 	// CheckHomeDirSubCommand is the sub-command Teleport uses to re-exec itself
 	// to check if the user's home directory exists.
@@ -837,7 +839,7 @@ const (
 	// ChanDirectTCPIP is a SSH channel of type "direct-tcpip".
 	ChanDirectTCPIP = "direct-tcpip"
 
-	ChanForwardedTCPIP = "forwarded-tcpip"
+	TCPIPForwardRequest = "tcpip-forward"
 
 	// ChanSession is a SSH channel of type "session".
 	ChanSession = "session"
