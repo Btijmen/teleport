@@ -625,7 +625,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			if s.reqHandler != nil {
 				go func(span oteltrace.Span) {
 					defer span.End()
-					s.reqHandler.HandleRequest(ctx, req)
+					s.reqHandler.HandleRequest(ctx, ccx, req)
 				}(span)
 			} else {
 				span.End()
@@ -668,7 +668,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 }
 
 type RequestHandler interface {
-	HandleRequest(ctx context.Context, r *ssh.Request)
+	HandleRequest(ctx context.Context, ccx *ConnectionContext, r *ssh.Request)
 }
 
 type NewChanHandler interface {

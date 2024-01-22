@@ -723,6 +723,10 @@ const (
 	// TerminalSizeRequest is a request for the terminal size of the session.
 	TerminalSizeRequest = "x-teleport-terminal-size"
 
+	TCPIPForwardRequest = "tcpip-forward"
+
+	CancelTCPIPForwardRequest = "cancel-tcpip-forward"
+
 	// MFAPresenceRequest is an SSH request to notify clients that MFA presence is required for a session.
 	MFAPresenceRequest = "x-teleport-mfa-presence"
 
@@ -838,8 +842,6 @@ const (
 const (
 	// ChanDirectTCPIP is a SSH channel of type "direct-tcpip".
 	ChanDirectTCPIP = "direct-tcpip"
-
-	TCPIPForwardRequest = "tcpip-forward"
 
 	// ChanSession is a SSH channel of type "session".
 	ChanSession = "session"

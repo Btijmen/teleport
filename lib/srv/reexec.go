@@ -646,6 +646,12 @@ func handleRemotePortForward(ctx context.Context, params forwardHandlerParams) {
 		return
 	}
 
+	// Listen may have chosen a new port, so communicate the final address to
+	// the parent process.
+	if _, _, err = params.controlConn.WriteWithFDs([]byte(listener.Addr().String()), nil); err != nil {
+		return
+	}
+
 	go func() {
 		for ctx.Err() == nil {
 			conn, err := listener.Accept()
