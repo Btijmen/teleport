@@ -6505,9 +6505,6 @@ message OktaOptions {
 
 // AccessMonitoringRule represents an acces monitoring rule resources.
 message AccessMonitoringRule {
-  option (gogoproto.goproto_stringer) = false;
-  option (gogoproto.stringer) = false;
-
   // Kind is a resource kind
   string Kind = 1 [(gogoproto.jsontag) = "kind"];
   // SubKind is an optional resource sub kind, used in some resources
