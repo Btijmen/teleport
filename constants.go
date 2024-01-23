@@ -843,6 +843,8 @@ const (
 	// ChanDirectTCPIP is a SSH channel of type "direct-tcpip".
 	ChanDirectTCPIP = "direct-tcpip"
 
+	ChanForwardedTCPIP = "forwarded-tcpip"
+
 	// ChanSession is a SSH channel of type "session".
 	ChanSession = "session"
 )

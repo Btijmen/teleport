@@ -19,38 +19,24 @@
 package sshutils
 
 import (
+	"net"
+	"strconv"
+
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 )
 
-type DirectTCPIPReq struct {
-	Host string
-	Port uint32
-
-	Orig     string
-	OrigPort uint32
+func JoinHostPort(host string, port uint32) string {
+	return net.JoinHostPort(host, strconv.Itoa(int(port)))
 }
 
-func ParseDirectTCPIPReq(data []byte) (*DirectTCPIPReq, error) {
-	var r DirectTCPIPReq
-	if err := ssh.Unmarshal(data, &r); err != nil {
-		log.Infof("failed to parse Direct TCP IP request: %v", err)
-		return nil, trace.Wrap(err)
+func SplitHostPort(addr string) (string, uint32, error) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", 0, trace.Wrap(err)
 	}
-	return &r, nil
-}
-
-type TCPIPForwardRequest struct {
-	Addr string
-	Port uint32
-}
-
-func ParseTCPIPForwardRequest(data []byte) (*TCPIPForwardRequest, error) {
-	var r TCPIPForwardRequest
-	if err := ssh.Unmarshal(data, &r); err != nil {
-		log.Infof("failed to parse TCP IP Forward request: %v", err)
-		return nil, trace.Wrap(err)
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", 0, trace.Wrap(err)
 	}
-	return &r, nil
+	return host, uint32(port), nil
 }
