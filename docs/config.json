@@ -631,6 +631,16 @@
           "slug": "/access-graph/",
           "forScopes": [
             "team"
+          ],
+          "entries": [
+            {
+              "title": "Getting Started",
+              "slug": "/access-graph/getting-started/",
+              "forScopes": [
+                "team",
+                "enterprise"
+              ]
+            }
           ]
         },
         {
