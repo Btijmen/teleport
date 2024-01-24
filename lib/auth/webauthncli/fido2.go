@@ -791,7 +791,7 @@ func handleDevice(
 	}()
 
 	if err := dev.SetTimeout(fido2DeviceTimeout); err != nil {
-		return trace.Wrap(&nonInteractiveError{err})
+		return trace.Wrap(&nonInteractiveError{err: err})
 	}
 
 	// Gather device information.
