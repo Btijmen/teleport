@@ -41,9 +41,13 @@ import (
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/httplib/reverseproxy"
+	"github.com/gravitational/teleport/lib/integrations/awsoidc"
 	"github.com/gravitational/teleport/lib/reversetunnelclient"
+	srvApp "github.com/gravitational/teleport/lib/srv/app"
+	"github.com/gravitational/teleport/lib/srv/app/common"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
+	awsutils "github.com/gravitational/teleport/lib/utils/aws"
 )
 
 // HandlerConfig is the configuration for an application handler.
@@ -241,6 +245,34 @@ func (h *Handler) HealthCheckAppServer(ctx context.Context, publicAddr string, c
 	return nil
 }
 
+func (h *Handler) awsConsoleSignInURL(ctx context.Context, app types.Application, identity *tlsca.Identity) (string, error) {
+	integrationName := app.GetAWSOIDCIntegration()
+	region := ""
+	sessionV1, err := awsoidc.NewSessionV1(ctx, h.c.AuthClient, region, integrationName)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	srvAppCloud, err := srvApp.NewCloud(srvApp.CloudConfig{
+		Session: sessionV1,
+	})
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	// TODO(marco): check rbac here (against role's allowed ARNs)
+	signedLoginURL, err := srvAppCloud.GetAWSSigninURL(srvApp.AWSSigninRequest{
+		Identity:   identity,
+		TargetURL:  app.GetURI(),
+		Issuer:     app.GetPublicAddr(),
+		ExternalID: app.GetAWSExternalID(),
+	})
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return signedLoginURL.SigninURL, nil
+}
+
 // handleHttp forwards the request to the application service or redirects
 // to the application directly.
 func (h *Handler) handleHttp(w http.ResponseWriter, r *http.Request, session *session) error {
@@ -249,8 +281,21 @@ func (h *Handler) handleHttp(w http.ResponseWriter, r *http.Request, session *se
 	session.tr.mu.Lock()
 	for _, appServer := range session.tr.c.servers {
 		// If encounter an app server that is to be redirected to, stop iterating.
-		if redirectInsteadOfForward(appServer) {
+		if redirectInsteadOfForward(appServer, r) {
 			redirectURI = appServer.GetApp().GetURI()
+			if appServer.GetApp().GetAWSOIDCIntegration() != "" {
+				// create the sign in url here
+				var err error
+				redirectURI, err = h.awsConsoleSignInURL(r.Context(), appServer.GetApp(), session.tr.c.identity)
+				if err != nil {
+					// TODO(marco): log error
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("failed to generate link for aws sign in"))
+					w.Write([]byte(err.Error()))
+					session.tr.mu.Unlock()
+					return trace.Wrap(err)
+				}
+			}
 			break
 		}
 	}
@@ -678,6 +723,19 @@ func makeAppRedirectURL(r *http.Request, proxyPublicAddr, hostname string, req l
 
 // redirectInsteadOfForward returns true if an application shouldn't be forwarded, but
 // should be redirected directly to the public address instead.
-func redirectInsteadOfForward(appServer types.AppServer) bool {
+func redirectInsteadOfForward(appServer types.AppServer, r *http.Request) bool {
+	// AWS Access with AWS OIDC Integration can either be redirected or forwarded.
+	// If trying to access the AWS Web Console, it should redirected (to the Federation URL).
+	//
+	// If trying to access AWS Services using the AWS CLI, it should forwarded.
+	// Requests coming from the AWS CLI are signed using AWS SigV4 or contain the TeleportAssumeRole header.
+	if appServer.GetApp().GetAWSOIDCIntegration() != "" {
+		if r == nil {
+			return true
+		}
+
+		return !(awsutils.IsSignedByAWSSigV4(r) || r.Header.Get(common.TeleportAWSAssumedRole) != "")
+	}
+
 	return appServer.GetApp().Origin() == types.OriginOkta
 }

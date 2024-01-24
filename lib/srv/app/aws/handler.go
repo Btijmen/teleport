@@ -211,6 +211,14 @@ func (s *signerHandler) emitAudit(sessCtx *common.SessionContext, req *http.Requ
 	}
 }
 
+func RewriteRequest(ctx context.Context, r *http.Request, re *endpoints.ResolvedEndpoint) (*http.Request, error) {
+	return rewriteRequest(ctx, r, re)
+}
+
+func ResolveEndpoint(r *http.Request) (*endpoints.ResolvedEndpoint, error) {
+	return resolveEndpoint(r)
+}
+
 // rewriteRequest clones a request to rewrite the url.
 func rewriteRequest(ctx context.Context, r *http.Request, re *endpoints.ResolvedEndpoint) (*http.Request, error) {
 	u, err := urlForResolvedEndpoint(r, re)
@@ -226,7 +234,9 @@ func rewriteRequest(ctx context.Context, r *http.Request, re *endpoints.Resolved
 		outReq.URL.Scheme = "https"
 		outReq.URL.Host = u.Host
 	}
-	outReq.Body = io.NopCloser(io.LimitReader(r.Body, teleport.MaxHTTPRequestSize))
+	if r.Body != nil {
+		outReq.Body = io.NopCloser(io.LimitReader(r.Body, teleport.MaxHTTPRequestSize))
+	}
 	// need to rewrite the host header as well. The oxy forwarder will do this for us,
 	// since we use the PassHostHeader(false) option, but if host is a signed header
 	// then we must make the host match the URL host before signing the request or AWS

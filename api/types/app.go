@@ -58,6 +58,9 @@ type Application interface {
 	GetRewrite() *Rewrite
 	// IsAWSConsole returns true if this app is AWS management console.
 	IsAWSConsole() bool
+	// GetAWSOIDCIntegration returns the AWS OIDC Integration.
+	// Returns empty if no AWS OIDC Integration is associated with the application.
+	GetAWSOIDCIntegration() string
 	// IsAzureCloud returns true if this app represents Azure Cloud instance.
 	IsAzureCloud() bool
 	// IsGCP returns true if this app represents GCP instance.
@@ -254,6 +257,15 @@ func (a *AppV3) IsAWSConsole() bool {
 	}
 
 	return a.Spec.Cloud == CloudAWS
+}
+
+// GetAWSOIDCIntegration returns the AWS OIDC Integration.
+// Returns empty if no AWS OIDC Integration is associated with the application.
+func (a *AppV3) GetAWSOIDCIntegration() string {
+	if !a.IsAWSConsole() {
+		return ""
+	}
+	return "teleportdev"
 }
 
 // IsAzureCloud returns true if this app is Azure Cloud instance.

@@ -27,7 +27,9 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 
@@ -37,10 +39,15 @@ import (
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/authz"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/events"
+	"github.com/gravitational/teleport/lib/integrations/awsoidc"
 	"github.com/gravitational/teleport/lib/reversetunnelclient"
 	"github.com/gravitational/teleport/lib/services"
+	appaws "github.com/gravitational/teleport/lib/srv/app/aws"
+	"github.com/gravitational/teleport/lib/srv/app/common"
 	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
+	awsutils "github.com/gravitational/teleport/lib/utils/aws"
 )
 
 // transportConfig is configuration for a rewriting transport.
@@ -142,10 +149,83 @@ func (t *transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// Forward the request to the target application.
-	resp, err := t.tr.RoundTrip(r)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	app := t.c.servers[0].GetApp()
+	integrationName := app.GetAWSOIDCIntegration()
+	var resp *http.Response
+	var err error
+	if integrationName != "" {
+		region := ""
+		remoteSiteClient, err := t.c.proxyClient.GetSite(t.c.identity.RouteToCluster)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		clt, err := remoteSiteClient.GetClient()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		sessionV1, err := awsoidc.NewSessionV1(r.Context(), clt, region, integrationName)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		awsSigner, err := awsutils.NewSigningService(awsutils.SigningServiceConfig{
+			Session: sessionV1,
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		audit, err := common.NewAudit(common.AuditConfig{
+			Emitter:  clt,
+			Recorder: events.WithNoOpPreparer(events.NewDiscardRecorder()),
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		r = common.WithSessionContext(r, &common.SessionContext{
+			Identity: t.c.identity,
+			App:      app,
+			ChunkID:  uuid.NewString(),
+			Audit:    audit,
+		})
+
+		re, err := appaws.ResolveEndpoint(r)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		req, err := appaws.RewriteRequest(r.Context(), r, re)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		req, err = awsSigner.SignRequest(r.Context(), req, &awsutils.SigningCtx{
+			SigningName:   re.SigningName,
+			SigningRegion: re.SigningRegion,
+			Expiry:        time.Now().Add(time.Hour),
+			SessionName:   t.c.identity.Username,
+			AWSRoleArn:    t.c.identity.RouteToApp.AWSRoleARN,
+			AWSExternalID: app.GetAWSExternalID(),
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		httpClt, err := defaults.HTTPClient()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+
+		resp, err = httpClt.Do(req)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		// Forward the request to the target application.
+		resp, err = t.tr.RoundTrip(r)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	// When proxying app in leaf cluster, the app will have PublicAddr
