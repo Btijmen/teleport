@@ -120,7 +120,7 @@ spec:
   title: "Production access for support engineers"
   audit:
     recurrence:
-      frequency: 6months[user-and-role.mdx](user-and-role.mdx)
+      frequency: 6months
   description: "Use this Access List to grant access to production to your engineers enrolled in the support rotation."
   owners:
     - description: "manager of NA support team"
@@ -130,7 +130,7 @@ spec:
       - manager
   grants:
     roles:
-      - support-engineer[user-and-role.mdx](user-and-role.mdx)
+      - support-engineer
   membership_requires:
     roles:
       - engineer
@@ -225,7 +225,7 @@ Access list "support-engineers" has been created
 
 <Admonition type="note">
 The user resource depends on roles, you must create roles before users as a user
-with a non-existing role is invalid and might be rejected by Teleport.
+with a non-existing role is invalid and will be rejected by Teleport.
 </Admonition>
 
 </TabItem>
@@ -270,7 +270,7 @@ You can log in as alice and add `bob` to the `support-engineers` Access List.
 <TabItem label="web UI">
 
 Login as `alice` in the web UI, open the management panel and select the
-"AccessLists" tab. Your AccessList should be displayed, open it, choose "Enroll
+"Access Lists" tab. Your Access List should be displayed, open it, choose "Enroll
 members" and add `bob`.
 
 ![Screenshot of the web UI showing the Access List and the "Enroll Member" button](../../../img/management/access-list-web-ui.png)

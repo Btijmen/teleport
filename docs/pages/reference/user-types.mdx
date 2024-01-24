@@ -69,7 +69,7 @@ The [SSO setup guides](../access-controls/sso.mdx).
 ### Sync-ed users
 
 Since version 15, Teleport supports fetching users from external identity
-providers. Today only Okta is supported.
+providers like Okta.
 
 Synchronizing users from the external IdP allows all users to be represented in
 Teleport, whether they logged in Teleport or not. The benefits of such
@@ -79,7 +79,7 @@ integration are:
 - Ability to see all users within Teleport regardless of the last login date.
 - All IdP users are displayed in Teleport Access Graph.
 
-The okta synchronization service is in charge of creating new users when they
+The Okta synchronization service is in charge of creating new users when they
 are created in Okta, and locking/deleting users if they get deactivated/removed
 in Okta.
 
