@@ -18,10 +18,10 @@
 
 import React from 'react';
 
-import { Text, Indicator, Box, Flex } from 'design';
+import { Box, Flex, Indicator, Text } from 'design';
 import * as Icons from 'design/Icon';
 
-import { StyledTable, StyledPanel, StyledTableWrapper } from './StyledTable';
+import { StyledPanel, StyledTable } from './StyledTable';
 import { TableProps } from './types';
 import { SortHeaderCell, TextCell } from './Cells';
 import { ClientSidePager, ServerSidePager } from './Pager';
@@ -138,55 +138,49 @@ export function Table<T>({
 
   if (serversideProps) {
     return (
-      <StyledTableWrapper borderRadius={3}>
-        <ServersideTable
-          style={style}
-          className={className}
-          data={state.data}
-          renderHeaders={renderHeaders}
-          renderBody={renderBody}
-          nextPage={fetching.onFetchNext}
-          prevPage={fetching.onFetchPrev}
-          pagination={state.pagination}
-          serversideProps={serversideProps}
-        />
-      </StyledTableWrapper>
+      <ServersideTable
+        style={style}
+        className={className}
+        data={state.data}
+        renderHeaders={renderHeaders}
+        renderBody={renderBody}
+        nextPage={fetching.onFetchNext}
+        prevPage={fetching.onFetchPrev}
+        pagination={state.pagination}
+        serversideProps={serversideProps}
+      />
     );
   }
 
   if (state.pagination) {
     return (
-      <StyledTableWrapper borderRadius={3}>
-        <PagedTable
-          style={style}
-          className={className}
-          data={state.data}
-          renderHeaders={renderHeaders}
-          renderBody={renderBody}
-          nextPage={nextPage}
-          prevPage={prevPage}
-          pagination={state.pagination}
-          searchValue={state.searchValue}
-          setSearchValue={setSearchValue}
-          fetching={fetching}
-        />
-      </StyledTableWrapper>
+      <PagedTable
+        style={style}
+        className={className}
+        data={state.data}
+        renderHeaders={renderHeaders}
+        renderBody={renderBody}
+        nextPage={nextPage}
+        prevPage={prevPage}
+        pagination={state.pagination}
+        searchValue={state.searchValue}
+        setSearchValue={setSearchValue}
+        fetching={fetching}
+      />
     );
   }
 
   if (isSearchable) {
     return (
-      <StyledTableWrapper borderRadius={3}>
-        <SearchableBasicTable
-          style={style}
-          className={className}
-          data={state.data}
-          renderHeaders={renderHeaders}
-          renderBody={renderBody}
-          searchValue={state.searchValue}
-          setSearchValue={setSearchValue}
-        />
-      </StyledTableWrapper>
+      <SearchableBasicTable
+        style={style}
+        className={className}
+        data={state.data}
+        renderHeaders={renderHeaders}
+        renderBody={renderBody}
+        searchValue={state.searchValue}
+        setSearchValue={setSearchValue}
+      />
     );
   }
 
@@ -227,12 +221,7 @@ function SearchableBasicTable<T>({
 }: SearchableBasicTableProps<T>) {
   return (
     <>
-      <StyledPanel>
-        <InputSearch
-          searchValue={searchValue}
-          setSearchValue={setSearchValue}
-        />
-      </StyledPanel>
+      <InputSearch searchValue={searchValue} setSearchValue={setSearchValue} />
       <StyledTable
         className={className}
         borderTopLeftRadius={0}
@@ -279,11 +268,13 @@ function PagedTable<T>({
   return (
     <>
       {isTopPager && (
-        <StyledPanel>
-          <InputSearch
-            searchValue={searchValue}
-            setSearchValue={setSearchValue}
-          />
+        <>
+          <StyledPanel>
+            <InputSearch
+              searchValue={searchValue}
+              setSearchValue={setSearchValue}
+            />
+          </StyledPanel>
           <ClientSidePager
             nextPage={nextPage}
             prevPage={prevPage}
@@ -291,7 +282,7 @@ function PagedTable<T>({
             {...fetching}
             {...pagination}
           />
-        </StyledPanel>
+        </>
       )}
       <StyledTable {...radiusProps} className={className} style={style}>
         {renderHeaders()}
@@ -332,9 +323,11 @@ function ServersideTable<T>({
         {renderHeaders()}
         {renderBody(data)}
       </StyledTable>
-      <StyledPanel showTopBorder={true}>
-        <ServerSidePager nextPage={nextPage} prevPage={prevPage} />
-      </StyledPanel>
+      {(nextPage || prevPage) && (
+        <StyledPanel showTopBorder={true}>
+          <ServerSidePager nextPage={nextPage} prevPage={prevPage} />
+        </StyledPanel>
+      )}
     </>
   );
 }
