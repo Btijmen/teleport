@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/teleport/lib/integrations/awsoidc"
+	"github.com/gravitational/teleport/lib/integrations/awsoidc/deployserviceconfig"
 	"github.com/gravitational/teleport/lib/reversetunnelclient"
 	"github.com/gravitational/teleport/lib/utils/oidc"
 	"github.com/gravitational/teleport/lib/web/scripts/oneoff"
@@ -183,6 +184,7 @@ func (h *Handler) awsOIDCDeployService(w http.ResponseWriter, r *http.Request, p
 		DeploymentMode:                req.DeploymentMode,
 		IntegrationName:               awsClientReq.IntegrationName,
 		DatabaseResourceMatcherLabels: databaseAgentMatcherLabels,
+		DeployServiceConfigString:     deployserviceconfig.GenerateTeleportConfigString,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -241,13 +243,14 @@ func (h *Handler) awsOIDCDeployDatabaseServices(w http.ResponseWriter, r *http.R
 	}
 
 	deployServiceResp, err := awsoidc.DeployDatabaseService(ctx, deployServiceClient, awsoidc.DeployDatabaseServiceRequest{
-		Region:              req.Region,
-		TaskRoleARN:         req.TaskRoleARN,
-		ProxyServerHostPort: h.PublicProxyAddr(),
-		TeleportClusterName: h.auth.clusterName,
-		TeleportVersionTag:  teleportVersionTag,
-		IntegrationName:     awsClientReq.IntegrationName,
-		Deployments:         deployments,
+		Region:                    req.Region,
+		TaskRoleARN:               req.TaskRoleARN,
+		ProxyServerHostPort:       h.PublicProxyAddr(),
+		TeleportClusterName:       h.auth.clusterName,
+		TeleportVersionTag:        teleportVersionTag,
+		IntegrationName:           awsClientReq.IntegrationName,
+		Deployments:               deployments,
+		DeployServiceConfigString: deployserviceconfig.GenerateTeleportConfigString,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
