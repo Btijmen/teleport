@@ -63,11 +63,14 @@ agents by:
   you can select a resource to enroll in your Teleport cluster and retrieve an
   installation script to run on Linux hosts.
 - Using the example Terraform module for deploying agents in [Deploy Agents with
-  Terraform](docs/pages/agents/deploy-agents-terraform.mdx). Read [Upgrade
-  Teleport Cloud Agents on Linux ](./upgrading/cloud-linux.mdx) to set up
-  automatic agent upgrades.
+  Terraform](docs/pages/agents/deploy-agents-terraform.mdx).
 - Reading the instructions in this section to install Teleport agent binaries
   manually.
+
+We recommend that Teleport Team and Teleport Enterprise Cloud users enable
+automatic upgrades for agents. Read [Upgrade Teleport Cloud Agents on Linux
+](./upgrading/cloud-linux.mdx) to set up automatic agent upgrades on Linux
+servers.
 
 If you are running a self-hosted Teleport Enterprise cluster, read our guidance
 in [Deploying a High-Availability Teleport
@@ -102,37 +105,40 @@ Valid editions are:
 | `oss`        | Teleport Community Edition        |
 | `team`       | Teleport Team                     |
 
-If running Teleport Enterprise Cloud, Teleport agents must be running version
-(=cloud.version=) or one major version below.
-
-### Using Teleport packages and archives
+### Installing Teleport with package managers
 
 Read the instructions in this section for how to install Teleport on a Linux
-server with your package manager of choice. Note that the [one-line installation
-script](#one-line-installation-script) runs these commands for you after
-determining which package manager to use.
+server with your package manager of choice. For more information about how our
+package repositories work, read [Package repositories and TAR
+archives](#package-repositories-and-tar-archives).
 
-#### apt
+Assign the following environment variables in the terminal where you will run
+Teleport installation commands:
 
-Run the following commands to install Teleport binaries on Linux systems that
-use the `apt` package manager. Replace `TELEPORT_PKG` with `teleport-ent` for
-Teleport Enterprise Cloud, Teleport Team, and Teleport Enterprise (Self-Hosted):
+<Tabs>
+<TabItem label="Teleport Community Edition">
 
 ```code
-$ TELEPORT_PKG=teleport
-# Download the Teleport PGP public key
-$ sudo curl https://apt.releases.teleport.dev/gpg \
--o /usr/share/keyrings/teleport-archive-keyring.asc
-# Source variables about OS version
-$ source /etc/os-release
-# Add the Teleport APT repository for v(=teleport.major_version=). You'll need to update this
-# file for each major release of Teleport.
-$ echo "deb [signed-by=/usr/share/keyrings/teleport-archive-keyring.asc] \
-https://apt.releases.teleport.dev/${ID?} ${VERSION_CODENAME?} stable/v(=teleport.major_version=)" \
-| sudo tee /etc/apt/sources.list.d/teleport.list > /dev/null
+$ export TELEPORT_PKG=teleport
+$ export TELEPORT_CHANNEL=stable
+```
 
-$ sudo apt-get update
-$ sudo apt-get install ${TELEPORT_PKG?}
+</TabItem>
+<TabItem label="Teleport Cloud">
+
+Install the automatic agent updater along with the `teleport` binary:
+
+```code
+$ export TELEPORT_PKG="teleport-ent teleport-ent-updater"
+$ export TELEPORT_CHANNEL="stable/cloud"
+```
+
+</TabItem>
+<TabItem label="Teleport Enterprise (Self-Hosted)">
+
+```code
+$ export TELEPORT_PKG=teleport-ent
+$ export TELEPORT_CHANNEL=stable
 ```
 
 For FedRAMP/FIPS-compliant installations, install the `teleport-ent-fips` package instead:
@@ -141,14 +147,30 @@ For FedRAMP/FIPS-compliant installations, install the `teleport-ent-fips` packag
 $ sudo apt-get install teleport-ent-fips
 ```
 
-#### yum
+</TabItem>
+</Tabs>
 
-Run the following commands to install Teleport binaries on Linux systems that
-use the `yum` package manager. Replace `TELEPORT_PKG` with `teleport-ent` for
-Teleport Enterprise Cloud, Teleport Team, and Teleport Enterprise (Self-Hosted):
+#### apt
 
 ```code
-$ TELEPORT_PKG=teleport
+# Download the Teleport PGP public key
+$ sudo curl https://apt.releases.teleport.dev/gpg \
+-o /usr/share/keyrings/teleport-archive-keyring.asc
+# Source variables about OS version
+$ source /etc/os-release
+# Add the Teleport APT repository for v(=teleport.major_version=). You'll need to update this
+# file for each major release of Teleport.
+$ echo "deb [signed-by=/usr/share/keyrings/teleport-archive-keyring.asc] \
+https://apt.releases.teleport.dev/${ID?} ${VERSION_CODENAME?} ${TELEPORT_CHANNEL?}/v(=teleport.major_version=)" \
+| sudo tee /etc/apt/sources.list.d/teleport.list > /dev/null
+
+$ sudo apt-get update
+$ sudo apt-get install ${TELEPORT_PKG?}
+```
+
+#### yum
+
+```code
 # Source variables about the OS version
 $ source /etc/os-release
 # Add the Teleport YUM repository for v(=teleport.major_version=). You'll need to update this
@@ -157,27 +179,16 @@ $ source /etc/os-release
 # package version.
 $ VERSION_ID=$(echo $VERSION_ID | grep -Eo "^[0-9]+")
 $ sudo yum install -y yum-utils
-$ sudo yum-config-manager --add-repo "$(rpm --eval "https://yum.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/stable/v(=teleport.major_version=)/teleport.repo")"
+$ sudo yum-config-manager --add-repo "$(rpm --eval "https://yum.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/${TELEPORT_CHANNEL?}/v(=teleport.major_version=)/teleport.repo")"
 $ sudo yum install ${TELEPORT_PKG?}
 #
 # Tip: Add /usr/local/bin to path used by sudo (so 'sudo tctl users add' will work as per the docs)
 # echo "Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" > /etc/sudoers.d/secure_path
 ```
 
-For FedRAMP/FIPS-compliant installations, install the `teleport-ent-fips` package instead:
-
-```code
-$ sudo yum install teleport-ent-fips
-```
-
 #### zypper
 
-Run the following commands to install Teleport binaries on Linux systems that
-use the `zypper` package manager. Replace `TELEPORT_PKG` with `teleport-ent` for
-Teleport Enterprise Cloud, Teleport Team, and Teleport Enterprise (Self-Hosted):
-
 ```code
-$ TELEPORT_PKG=teleport
 # Source variables about OS version
 $ source /etc/os-release
 # Add the Teleport Zypper repository for v(=teleport.major_version=). You'll need to update this
@@ -186,27 +197,16 @@ $ source /etc/os-release
 # package version.
 $ VERSION_ID=$(echo $VERSION_ID | grep -Eo "^[0-9]+")
 # Use zypper to add the teleport RPM repo
-$ sudo zypper addrepo --refresh --repo $(rpm --eval "https://zypper.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/stable/cloud/teleport-zypper.repo")
+$ sudo zypper addrepo --refresh --repo $(rpm --eval "https://zypper.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/${TELEPORT_CHANNEL?}/teleport-zypper.repo")
 $ sudo yum install ${TELEPORT_PKG?}
 #
 # Tip: Add /usr/local/bin to path used by sudo (so 'sudo tctl users add' will work as per the docs)
 # echo "Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" > /etc/sudoers.d/secure_path
 ```
 
-For FedRAMP/FIPS-compliant installations, install the `teleport-ent-fips` package instead:
-
-```code
-$ sudo yum install teleport-ent-fips
-```
-
 #### dnf
 
-Run the following commands to install Teleport binaries on Linux systems that
-use the `dnf` package manager. Replace `TELEPORT_PKG` with `teleport-ent` for
-Teleport Enterprise Cloud, Teleport Team, and Teleport Enterprise (Self-Hosted):
-
 ```code
-$ TELEPORT_PKG=teleport
 # Source variables about OS version
 $ source /etc/os-release
 # Add the Teleport YUM repository for v(=teleport.major_version=). You'll need to update this
@@ -215,7 +215,7 @@ $ source /etc/os-release
 # package version.
 $ VERSION_ID=$(echo $VERSION_ID | grep -Eo "^[0-9]+")
 # Use the dnf config manager plugin to add the teleport RPM repo
-$ sudo dnf config-manager --add-repo "$(rpm --eval "https://yum.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/stable/v(=teleport.major_version=)/teleport.repo")"
+$ sudo dnf config-manager --add-repo "$(rpm --eval "https://yum.releases.teleport.dev/$ID/$VERSION_ID/Teleport/%{_arch}/${TELEPORT_CHANNEL?}/v(=teleport.major_version=)/teleport.repo")"
 
 # Install teleport
 $ sudo dnf install ${TELEPORT_PKG}
@@ -224,13 +224,7 @@ $ sudo dnf install ${TELEPORT_PKG}
 # echo "Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin" > /etc/sudoers.d/secure_path
 ```
 
-For FedRAMP/FIPS-compliant installations, install the `teleport-ent-fips` package instead:
-
-```code
-$ sudo dnf install teleport-ent-fips
-```
-
-#### tar
+### Installing Teleport from the TAR archive
 
 Run the following commands to install Teleport binaries on Linux systems that do
 not have a package manager available. Replace `TELEPORT_PKG` with `teleport-ent`
@@ -265,6 +259,9 @@ $ tar -xvf teleport-ent-v(=teleport.version=)-linux-${SYSTEM_ARCH?}-fips-bin.tar
 $ cd teleport-ent
 $ sudo ./install
 ```
+
+For more information about our TAR archives, read [Package repositories and TAR
+archives](#tar-archives).
 
 ### Package repositories and TAR archives
 
