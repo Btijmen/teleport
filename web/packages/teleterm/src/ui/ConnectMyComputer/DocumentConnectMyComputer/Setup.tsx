@@ -218,6 +218,20 @@ function AgentSetup() {
   const rootCluster = ctx.clustersService.findCluster(rootClusterUri);
   const nodeToken = useRef<string>();
 
+  // All verifyAgent step does is check if we can execute the binary. This also triggers OS-level
+  // checks, like Gatekeeper on macOS, before we do any real work.
+  //
+  // Sometimes Gatekeeper deems the binary unsafe for some unknown reason and prohibit Connect from
+  // executing the binary. In that case, the telemetry is going to show that this step has failed.
+  // If we didn't have this check as a separate step, the next step utilizing the binary would fail,
+  // making the errors reported in telemetry less clear.
+  const [verifyAgentAttempt, runVerifyAgentAttempt, setVerifyAgentAttempt] =
+    useAsync(
+      useCallback(async () => {
+        await ctx.connectMyComputerService.verifyAgent();
+      }, [ctx])
+    );
+
   const [createRoleAttempt, runCreateRoleAttempt, setCreateRoleAttempt] =
     useAsync(
       useCallback(
@@ -248,6 +262,7 @@ function AgentSetup() {
         [ctx, rootClusterUri]
       )
     );
+
   const [
     generateConfigFileAttempt,
     runGenerateConfigFileAttempt,
@@ -260,6 +275,7 @@ function AgentSetup() {
       nodeToken.current = token;
     }, [rootCluster, ctx, rootClusterUri])
   );
+
   const [joinClusterAttempt, runJoinClusterAttempt, setJoinClusterAttempt] =
     useAsync(
       useCallback(async () => {
@@ -301,6 +317,10 @@ function AgentSetup() {
     {
       name: 'Downloading the agent',
       attempt: downloadAgentAttempt,
+    },
+    {
+      name: 'Verifying the agent',
+      attempt: verifyAgentAttempt,
     },
     {
       name: 'Setting up the role',
@@ -382,12 +402,14 @@ function AgentSetup() {
     // otherwise we could see old errors on retry
     // (the error would be cleared when the given step starts, but it would be too late)
     setDownloadAgentAttempt(makeEmptyAttempt());
+    setVerifyAgentAttempt(makeEmptyAttempt());
     setCreateRoleAttempt(makeEmptyAttempt());
     setGenerateConfigFileAttempt(makeEmptyAttempt());
     setJoinClusterAttempt(makeEmptyAttempt());
 
     const actions = [
       withEventOnFailure(runDownloadAgentAttempt, 'downloading_agent'),
+      withEventOnFailure(runVerifyAgentAttempt, 'verifying_agent'),
       withEventOnFailure(runCreateRoleAttempt, 'setting_up_role'),
       withEventOnFailure(
         runGenerateConfigFileAttempt,
@@ -414,6 +436,7 @@ function AgentSetup() {
     if (
       [
         downloadAgentAttempt,
+        verifyAgentAttempt,
         createRoleAttempt,
         generateConfigFileAttempt,
         joinClusterAttempt,

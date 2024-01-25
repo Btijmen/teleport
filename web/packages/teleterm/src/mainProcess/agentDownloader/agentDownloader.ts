@@ -145,9 +145,7 @@ async function isCorrectAgentVersionAlreadyDownloaded(
     const agentVersion = await asyncExecFile(
       agentBinaryPath,
       ['version', '--raw'],
-      {
-        timeout: 10_000, // 10 seconds
-      }
+      { timeout: EXEC_AGENT_BINARY_TIMEOUT }
     );
     return agentVersion.stdout.trim() === neededVersion;
   } catch (e) {
@@ -171,3 +169,15 @@ function unpack(sourceFile: string, targetDirectory: string): Promise<void> {
     })
   );
 }
+
+/**
+ * verifyAgent checks if the binary can be executed. Used to trigger OS-level checks (like
+ * Gatekeeper on macOS) before we actually do any real work with the binary.
+ */
+export async function verifyAgent(agentBinaryPath: string) {
+  await asyncExecFile(agentBinaryPath, ['version', '--raw'], {
+    timeout: EXEC_AGENT_BINARY_TIMEOUT,
+  });
+}
+
+const EXEC_AGENT_BINARY_TIMEOUT = 10_000;
