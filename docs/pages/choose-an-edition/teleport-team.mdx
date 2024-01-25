@@ -94,24 +94,26 @@ Teleport Team account is `mytenant`, open `https://mytenant.teleport.sh`.
    
    ![Add your first resource](../../img/cloud/getting-started/add-my-first-resource@2x.png)
 
-1. Click **Add my first resource** to open **Enroll New Resource**. 
+1. Click **Add my first resource**, and you will see the option to enroll
+   resources in your Teleport cluster.
 
-1. Type *server* in the search box to filter the list of resources.
+1. Type *server* in the search box to filter the list of resources:
    
    ![Select resource type](../../img/cloud/getting-started/choose-resource@2x.png)
 
 1. Click *Ubuntu 14.04+* to register the server in the Docker container.
    
-   After you select *Ubuntu 14.04+* as the resource type, the script to install and 
-   configure the Teleport service is displayed. For example:
+   After you select *Ubuntu 14.04+* as the resource type, the Web UI prompts you
+   for your multi-factor authentication device, then displays a script to
+   install and configure the Teleport SSH Service. For example:
    
    ![Configure resource](../../img/cloud/getting-started/paste-script@2x.png)
    
-   The Teleport installation script uses `sudo`, which is not installed on your 
-   Docker container. Before copying the command to run the installation script, you 
-   need to alias `sudo` in the container terminal shell session.
+1. The Teleport installation script uses `sudo`, which is not installed on your
+   Docker container. Before copying the command to run the installation script,
+   you need to alias `sudo` in the container terminal shell session.
 
-1. In the terminal with the container shell session, alias `sudo` by running 
+   In the terminal with the container shell session, alias `sudo` by running 
 the following command:
    
    ```code
@@ -132,7 +134,8 @@ into the container shell session.
    
    ![Choose your user](../../img/cloud/getting-started/set-up-access@2x.png)
 
-1. Click **Test Connection** to verify access to the server.
+1. Respond to the MFA prompt again, then click **Test Connection** to verify
+   access to the server.
    
    ![Start session](../../img/cloud/getting-started/test-connection@2x.png)
 
