@@ -579,7 +579,7 @@
 	  "slug": "/management/dynamic-resources/",
 	  "entries": [
         {
-          "title": "Managing users and roles",
+          "title": "Managing Users and Roles",
           "slug": "/management/dynamic-resources/user-and-role/"
         },
         {
@@ -1653,7 +1653,7 @@
           "slug": "/reference/signals/"
         },
         {
-          "title": "User types",
+          "title": "User Types",
           "slug": "/reference/user-types/"
         },
         {
